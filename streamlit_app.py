@@ -52,7 +52,7 @@ def create_encoders():
 
 @st.cache_resource
 def load_model():
-    with open('your_model_path.pkl', 'rb') as f:
+    with open('DCPHModelFinal.pkl', 'rb') as f:
         model = pickle.load(f)
     return model
 
