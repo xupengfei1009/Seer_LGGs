@@ -55,8 +55,7 @@ def load_model():
 
 
 def process_input(state_dict, encoders):
-      input_data = []
-  
+    input_data = []
     input_data.append(state_dict['Age'])
     input_data.append(1 if state_dict['Sex'] == 'Male' else 0)
     input_data.append(state_dict['Size'])
