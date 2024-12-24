@@ -57,21 +57,16 @@ def load_model():
     return model
 
 
-def process_input(state_dict):
-    input_data = []
-    
+def process_input(state_dict, encoders):
+      input_data = []
+  
     input_data.append(state_dict['Age'])
-    input_data.append(1 if state_dict['Sex'] == 'Male' else 0)    
+    input_data.append(1 if state_dict['Sex'] == 'Male' else 0)
     input_data.append(state_dict['Size'])
     
-    subtype_encoded = encoders['Subtype'].transform([[state_dict['Subtype']]])
-    input_data.extend(subtype_encoded.flatten())
-    
-    surgery_encoded = encoders['Surgery'].transform([[state_dict['Surgery']]])
-    input_data.extend(surgery_encoded.flatten())
-    
-    treatment_encoded = encoders['AdjuvantTreatment'].transform([[state_dict['AdjuvantTreatment']]])
-    input_data.extend(treatment_encoded.flatten())
+    for feature in ['Subtype', 'Surgery', 'AdjuvantTreatment']:
+        encoded = encoders[feature].transform([[state_dict[feature]]])
+        input_data.extend(encoded.flatten())
     
     return np.array(input_data)
 
@@ -119,7 +114,6 @@ def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
     return fig
 
 def main():
-    st.title('Survival Prediction for Patients')
     
     settings, input_keys = load_setting()
     encoders = create_encoders()
