@@ -11,26 +11,23 @@ st.set_page_config(layout="wide")
 @st.cache_data(show_spinner=False)
 def load_setting():
     settings = {
-        'Age': {'values': [19, 85], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
-        'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0, 'add_after': ''},
-        'Size': {'values': [1, 100], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
+        'Age': {'values': [19, 85], 'type': 'slider', 'init_value': 30},
+        'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0},
+        'Size': {'values': [1, 100], 'type': 'slider', 'init_value': 50},
         'Subtype': {
             'values': ["AST(IDH-mutant)", "AST(IDH-wild)", "OLI(IDH-mutant)"],
             'type': 'selectbox',
-            'init_value': 0,
-            'add_after': ''
+            'init_value': 0
         },
         'Surgery': {
             'values': ["Biopsy", "GTR", "PR", "STR"],
             'type': 'selectbox',
-            'init_value': 0,
-            'add_after': ''
+            'init_value': 0
         },
         'AdjuvantTreatment': {
             'values': ["CRT", "CT", "None", "RT"],
             'type': 'selectbox',
-            'init_value': 0,
-            'add_after': ''
+            'init_value': 0
         }
     }
     
