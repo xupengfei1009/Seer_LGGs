@@ -69,28 +69,62 @@ def process_input(state_dict, encoders):
     return np.array(input_data)
 
 def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
-    
-    survival_probs = survival_probs.flatten()  
-    
-    
     df = pd.DataFrame({
         'Time': times,
         'Survival': survival_probs
     })
     
+    fig = px.line(df, x='Time', y='Survival')
     
-    fig = px.line(df, x='Time', y='Survival', 
-                  title='Predicted Survival Probability')
-    
-    fig.add_scatter(
-        x=[12, 36, 60],
-        y=[probs_12m, probs_36m, probs_60m],
-        mode='markers+text',
-        text=[f"{v*100:.1f}%" for v in [probs_12m, probs_36m, probs_60m]],
-        textposition="top center",
-        name="Annual Survival",
-        showlegend=False
+    fig.update_traces(
+        line=dict(color='#2E75B6', width=3),
+        name='Survival Probability'
     )
+    
+    marker_times = [12, 36, 60]
+    marker_probs = [probs_12m, probs_36m, probs_60m]
+    
+    text_positions = []
+    for prob in marker_probs:
+        if prob > 0.9:
+            text_positions.append('bottom center')
+        elif prob < 0.1:
+            text_positions.append('top center')
+        else:
+            text_positions.append('middle right')
+    
+    fig.add_trace(
+        go.Scatter(
+            x=marker_times,
+            y=marker_probs,
+            mode='markers+text',
+            marker=dict(
+                color='#E74C3C',
+                size=12,
+                symbol='circle'
+            ),
+            text=[f"{v*100:.1f}%" for v in marker_probs],
+            textposition=text_positions,
+            textfont=dict(
+                size=14,
+                color='#2C3E50'
+            ),
+            name='Annual Survival',
+            showlegend=False
+        )
+    )
+    
+    for t in marker_times:
+        fig.add_shape(
+            type='line',
+            x0=t, x1=t,
+            y0=0, y1=1,
+            line=dict(
+                color='#95A5A6',
+                width=1,
+                dash='dash'
+            )
+        )
     
     fig.update_layout(
         title={
@@ -101,13 +135,40 @@ def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
             'yanchor': 'top',
             'font': dict(size=24)
         },
-        xaxis_title="Time (Months)",
-        yaxis_title="Survival Probability",
-        yaxis_range=[0, 1],
-        template='simple_white',
-        plot_bgcolor="white",
-        font=dict(size=14)
+        xaxis=dict(
+            title="Time (Months)",
+            gridcolor='#EAECEE',
+            zeroline=True,
+            zerolinecolor='#95A5A6',
+            zerolinewidth=1,
+            range=[0, 65],  
+            tickmode='array',
+            tickvals=[0, 12, 24, 36, 48, 60],
+            ticktext=['0', '1y', '2y', '3y', '4y', '5y']
+        ),
+        yaxis=dict(
+            title="Survival Probability",
+            gridcolor='#EAECEE',
+            zeroline=True,
+            zerolinecolor='#95A5A6',
+            zerolinewidth=1,
+            range=[0, 1],
+            tickformat='.0%'
+        ),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(
+            family="Arial",
+            size=14,
+            color="#2C3E50"
+        ),
+        margin=dict(t=100, l=80, r=80, b=80),
+        showlegend=False,
+        hovermode='x unified'
     )
+    
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#EAECEE')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#EAECEE')
     
     return fig
 
@@ -172,7 +233,7 @@ def main():
         probs_60m = model.predict_survival(input_data_reshaped, t=60)[0]
     
     fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, height=600)
     
     st.markdown("### Prediction Results")
     col1, col2, col3 = st.columns(3)
