@@ -11,9 +11,9 @@ st.set_page_config(layout="wide")
 @st.cache_data(show_spinner=False)
 def load_setting():
     settings = {
-        'Age': {'values': [0, 70], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
+        'Age': {'values': [19, 85], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
         'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0, 'add_after': ''},
-        'Size': {'values': [0, 100], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
+        'Size': {'values': [1, 100], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
         'Subtype': {
             'values': ["AST(IDH-mutant)", "AST(IDH-wild)", "OLI(IDH-mutant)"],
             'type': 'selectbox',
@@ -83,13 +83,13 @@ def predict():
     survival = model.predict_survival(input_data.reshape(1, -1), t=None)
     
     data = {
-        'survival': survival.flatten()[:60],
-        'times': list(range(60)),
+        'survival': survival.flatten(),
+        'times': [i for i in range(0, len(survival.flatten()))],
         'No': len(st.session_state['patients']) + 1,
         'arg': {key: st.session_state[key] for key in input_keys},
-        '1-year': survival[0, 11],
-        '3-year': survival[0, 35],
-        '5-year': survival[0, 59]
+        '1-year': survival[0, 12],
+        '2-year': survival[0, 24],
+        '3-year': survival[0, 36]
     }
     
     st.session_state['patients'].append(data)
@@ -112,7 +112,7 @@ def plot_survival():
     last_patient = st.session_state['patients'][-1]
     fig.add_scatter(
         x=[12, 36, 60], 
-        y=[last_patient['1-year'], last_patient['3-year'], last_patient['5-year']],
+        y=[last_patient['1-year'], last_patient['2-year'], last_patient['3-year']],
         mode='markers+text',
         text=[f"{v*100:.1f}%" for v in [last_patient['1-year'], last_patient['3-year'], last_patient['5-year']]],
         textposition="top center",
@@ -207,7 +207,6 @@ if st.session_state['patients']:
         )
 
 
-# 添加说明信息
 st.markdown("---")
 st.markdown("### User Guide")
 st.markdown("""
