@@ -214,12 +214,13 @@ def main():
                         key='AdjuvantTreatment')
             
             submitted = st.form_submit_button("Predict")
-
+    
+    times = np.arange(61)
+    
     if submitted:
         input_data = process_input(st.session_state, encoders)
         input_data_reshaped = input_data.reshape(1, -1)
-    
-        times = np.arange(61)  
+      
         survival_probs = []
     
         for t in times:
@@ -232,17 +233,17 @@ def main():
         probs_36m = model.predict_survival(input_data_reshaped, t=36)[0]
         probs_60m = model.predict_survival(input_data_reshaped, t=60)[0]
     
-    fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
-    st.plotly_chart(fig, use_container_width=True, height=600)
+        fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
+        st.plotly_chart(fig, use_container_width=True, height=600)
     
-    st.markdown("### Prediction Results")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("1-year Survival", f"{probs_12m*100:.1f}%")
-    with col2:
-        st.metric("3-year Survival", f"{probs_36m*100:.1f}%")
-    with col3:
-        st.metric("5-year Survival", f"{probs_60m*100:.1f}%")
+        st.markdown("### Prediction Results")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("1-year Survival", f"{probs_12m*100:.1f}%")
+        with col2:
+            st.metric("3-year Survival", f"{probs_36m*100:.1f}%")
+        with col3:
+            st.metric("5-year Survival", f"{probs_60m*100:.1f}%")
 
 if __name__ == "__main__":
     main()
