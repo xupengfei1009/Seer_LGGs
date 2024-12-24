@@ -53,12 +53,10 @@ def load_model():
 def process_input(state_dict, encoders):
     input_data = []
     
-    # 数值型变量
     input_data.append(state_dict['Age'])
     input_data.append(1 if state_dict['Sex'] == 'Male' else 0)
     input_data.append(state_dict['Size'])
     
-    # 分类变量编码
     subtype_encoded = encoders['Subtype'].transform([[state_dict['Subtype']]])
     input_data.extend(subtype_encoded.flatten())
     
@@ -71,20 +69,19 @@ def process_input(state_dict, encoders):
     return np.array(input_data)
 
 def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
-    # 确保数据长度一致
-    survival_probs = survival_probs.flatten()  # 确保是一维数组
     
-    # 创建基础数据框
+    survival_probs = survival_probs.flatten()  
+    
+    
     df = pd.DataFrame({
         'Time': times,
         'Survival': survival_probs
     })
     
-    # 创建图表
+    
     fig = px.line(df, x='Time', y='Survival', 
                   title='Predicted Survival Probability')
     
-    # 添加特定时间点的标记
     fig.add_scatter(
         x=[12, 36, 60],
         y=[probs_12m, probs_36m, probs_60m],
@@ -95,7 +92,6 @@ def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
         showlegend=False
     )
     
-    # 更新布局
     fig.update_layout(
         title={
             'text': 'Predicted Survival Probability',
@@ -118,12 +114,10 @@ def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
 def main():
     st.title('Survival Prediction Model for Adult Diffuse Low-grade Glioma')
 
-    # 加载设置和模型
     settings, input_keys = load_setting()
     encoders = create_encoders()
     model = load_model()
 
-    # 侧边栏输入表单
     with st.sidebar:
         with st.form("prediction_form"):
             st.slider("Age (year)", 
@@ -160,35 +154,38 @@ def main():
             
             submitted = st.form_submit_button("Predict")
 
-    # 处理预测
     if submitted:
         input_data = process_input(st.session_state, encoders)
-        
-        # 预测生存率
-        times = np.arange(61)  # 0-60个月
-        survival_probs = model.predict_survival(input_data.reshape(1, -1), t=times)
-        probs_12m = model.predict_survival(input_data.reshape(1, -1), t=12)[0]  # 1年
-        probs_36m = model.predict_survival(input_data.reshape(1, -1), t=36)[0]  # 3年
-        probs_60m = model.predict_survival(input_data.reshape(1, -1), t=60)[0]  # 5年
-        
-        # 绘制生存曲线
-        fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # 显示具体的生存率数值
-        st.markdown("### Prediction Results")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("1-year Survival", f"{probs_12m*100:.1f}%")
-        with col2:
-            st.metric("3-year Survival", f"{probs_36m*100:.1f}%")
-        with col3:
-            st.metric("5-year Survival", f"{probs_60m*100:.1f}%")
+        input_data_reshaped = input_data.reshape(1, -1)
+    
+        times = np.arange(61)  
+        survival_probs = []
+    
+        for t in times:
+            prob = model.predict_survival(input_data_reshaped, t=t)[0]
+            survival_probs.append(prob)
+    
+        survival_probs = np.array(survival_probs)
+    
+        probs_12m = model.predict_survival(input_data_reshaped, t=12)[0]
+        probs_36m = model.predict_survival(input_data_reshaped, t=36)[0]
+        probs_60m = model.predict_survival(input_data_reshaped, t=60)[0]
+    
+    fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("### Prediction Results")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("1-year Survival", f"{probs_12m*100:.1f}%")
+    with col2:
+        st.metric("3-year Survival", f"{probs_36m*100:.1f}%")
+    with col3:
+        st.metric("5-year Survival", f"{probs_60m*100:.1f}%")
 
 if __name__ == "__main__":
     main()
 
-# 添加说明
 st.markdown("---")
 st.markdown("### User Guide")
 st.markdown("""
