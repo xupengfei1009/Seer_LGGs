@@ -2,34 +2,38 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import pickle
 from sklearn.preprocessing import OneHotEncoder
+from pysurvival.utils import load_model
 
 st.set_page_config(layout="wide")
 
 @st.cache_data(show_spinner=False)
 def load_setting():
     settings = {
-        'Age': {'values': [19, 85], 'type': 'slider', 'init_value': 30},
-        'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0},
-        'Size': {'values': [1, 100], 'type': 'slider', 'init_value': 50},
+        'Age': {'values': [0, 70], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
+        'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0, 'add_after': ''},
+        'Size': {'values': [0, 100], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
         'Subtype': {
-            'values': ["AST(IDH-mutant)", "AST(IDH-wild)", "OLI(IDH-mutant)"],
+            'values': ["OLI(IDH-mutant)","AST(IDH-mutant)"],
             'type': 'selectbox',
-            'init_value': 0
+            'init_value': 0,
+            'add_after': ''
         },
         'Surgery': {
-            'values': ["Biopsy", "GTR", "PR", "STR"],
+            'values': ["GTR", "PR", "STR"],
             'type': 'selectbox',
-            'init_value': 0
+            'init_value': 0,
+            'add_after': ''
         },
         'AdjuvantTreatment': {
             'values': ["CRT", "CT", "None", "RT"],
             'type': 'selectbox',
-            'init_value': 0
+            'init_value': 0,
+            'add_after': ''
         }
     }
+    
     input_keys = ['Age', 'Sex', 'Size', 'Subtype', 'Surgery', 'AdjuvantTreatment']
     return settings, input_keys
 
@@ -40,22 +44,26 @@ def create_encoders():
         'Surgery': OneHotEncoder(sparse=False, drop=None),
         'AdjuvantTreatment': OneHotEncoder(sparse=False, drop=None)
     }
-    encoders['Subtype'].fit([["AST(IDH-mutant)"], ["AST(IDH-wild)"], ["OLI(IDH-mutant)"]])
-    encoders['Surgery'].fit([["Biopsy"], ["GTR"], ["PR"], ["STR"]])
+    encoders['Subtype'].fit([["AST(IDH-mutant)"], ["OLI(IDH-mutant)"]])
+    encoders['Surgery'].fit([["GTR"], ["PR"], ["STR"]])
     encoders['AdjuvantTreatment'].fit([["CRT"], ["CT"], ["None"], ["RT"]])
+    
     return encoders
 
 @st.cache_resource
 def load_model():
-    with open('DCPHModelFinal.pkl', 'rb') as f:
+    with open('your_model_path.pkl', 'rb') as f:
         model = pickle.load(f)
     return model
 
-def process_input(state_dict, encoders):
+
+def process_input(state_dict):
     input_data = []
     
     input_data.append(state_dict['Age'])
+    
     input_data.append(1 if state_dict['Sex'] == 'Male' else 0)
+    
     input_data.append(state_dict['Size'])
     
     subtype_encoded = encoders['Subtype'].transform([[state_dict['Subtype']]])
@@ -69,63 +77,48 @@ def process_input(state_dict, encoders):
     
     return np.array(input_data)
 
-def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
-    df = pd.DataFrame({
-        'Time': times,
-        'Survival': survival_probs
-    })
+def predict():
+    input_data = process_input(st.session_state)
     
-    fig = px.line(df, x='Time', y='Survival')
+    survival = model.predict_survival(input_data.reshape(1, -1), t=None)
     
-    fig.update_traces(
-        line=dict(color='#2E75B6', width=3),
-        name='Survival Probability'
+    data = {
+        'survival': survival.flatten()[:60],
+        'times': list(range(60)),
+        'No': len(st.session_state['patients']) + 1,
+        'arg': {key: st.session_state[key] for key in input_keys},
+        '1-year': survival[0, 11],
+        '3-year': survival[0, 35],
+        '5-year': survival[0, 59]
+    }
+    
+    st.session_state['patients'].append(data)
+    print('Prediction done')
+
+st.title('Survival Prediction Model for Adult Diffuse Low-grade Glioma')
+
+def plot_survival():
+    pd_data = pd.concat([
+        pd.DataFrame({
+            'Survival': item['survival'],
+            'Time': item['times'],
+            'Patient': [f"Patient {item['No']}" for _ in item['times']]
+        }) for item in st.session_state['patients']
+    ])
+    
+    fig = px.line(pd_data, x="Time", y="Survival", color='Patient',
+                  range_x=[0, 60], range_y=[0, 1])
+    
+    last_patient = st.session_state['patients'][-1]
+    fig.add_scatter(
+        x=[12, 36, 60], 
+        y=[last_patient['1-year'], last_patient['3-year'], last_patient['5-year']],
+        mode='markers+text',
+        text=[f"{v*100:.1f}%" for v in [last_patient['1-year'], last_patient['3-year'], last_patient['5-year']]],
+        textposition="top center",
+        name="Annual Survival",
+        showlegend=False
     )
-    
-    marker_times = [12, 36, 60]
-    marker_probs = [probs_12m, probs_36m, probs_60m]
-    
-    text_positions = []
-    for prob in marker_probs:
-        if prob > 0.9:
-            text_positions.append('bottom center')
-        elif prob < 0.1:
-            text_positions.append('top center')
-        else:
-            text_positions.append('middle right')
-    
-    fig.add_trace(
-        go.Scatter(
-            x=marker_times,
-            y=marker_probs,
-            mode='markers+text',
-            marker=dict(
-                color='#E74C3C',
-                size=12,
-                symbol='circle'
-            ),
-            text=[f"{v*100:.1f}%" for v in marker_probs],
-            textposition=text_positions,
-            textfont=dict(
-                size=14,
-                color='#2C3E50'
-            ),
-            name='Annual Survival',
-            showlegend=False
-        )
-    )
-    
-    for t in marker_times:
-        fig.add_shape(
-            type='line',
-            x0=t, x1=t,
-            y0=0, y1=1,
-            line=dict(
-                color='#95A5A6',
-                width=1,
-                dash='dash'
-            )
-        )
     
     fig.update_layout(
         title={
@@ -136,119 +129,85 @@ def plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m):
             'yanchor': 'top',
             'font': dict(size=24)
         },
-        xaxis=dict(
-            title="Time (Months)",
-            gridcolor='#EAECEE',
-            zeroline=True,
-            zerolinecolor='#95A5A6',
-            zerolinewidth=1,
-            range=[0, 65],  
-            tickmode='array',
-            tickvals=[0, 12, 24, 36, 48, 60],
-            ticktext=['0', '1y', '2y', '3y', '4y', '5y']
-        ),
-        yaxis=dict(
-            title="Survival Probability",
-            gridcolor='#EAECEE',
-            zeroline=True,
-            zerolinecolor='#95A5A6',
-            zerolinewidth=1,
-            range=[0, 1],
-            tickformat='.0%'
-        ),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(
-            family="Arial",
-            size=14,
-            color="#2C3E50"
-        ),
-        margin=dict(t=100, l=80, r=80, b=80),
-        showlegend=False,
-        hovermode='x unified'
+        xaxis_title="Time (Months)",
+        yaxis_title="Survival Probability",
+        template='simple_white',
+        plot_bgcolor="white",
+        font=dict(size=14)
     )
     
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#EAECEE')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#EAECEE')
-    
-    return fig
+    st.plotly_chart(fig, use_container_width=True)
 
-def main():
-    st.title('Survival Prediction Model for Adult Diffuse Low-grade Glioma')
+settings, input_keys = load_setting()
+encoders = create_encoders()
+model = load_model()
 
-    settings, input_keys = load_setting()
-    encoders = create_encoders()
-    model = load_model()
+if 'patients' not in st.session_state:
+    st.session_state['patients'] = []
 
-    with st.sidebar:
-        with st.form("prediction_form"):
-            st.slider("Age (year)", 
-                     settings['Age']['values'][0],
-                     settings['Age']['values'][1],
-                     settings['Age']['init_value'],
-                     key='Age')
-            
-            st.selectbox("Sex",
-                        settings['Sex']['values'],
-                        index=settings['Sex']['init_value'],
-                        key='Sex')
-            
-            st.slider("Tumor Size (mm)",
-                     settings['Size']['values'][0],
-                     settings['Size']['values'][1],
-                     settings['Size']['init_value'],
-                     key='Size')
-            
-            st.selectbox("Subtype",
-                        settings['Subtype']['values'],
-                        index=settings['Subtype']['init_value'],
-                        key='Subtype')
-            
-            st.selectbox("Extent of Resection",
-                        settings['Surgery']['values'],
-                        index=settings['Surgery']['init_value'],
-                        key='Surgery')
-            
-            st.selectbox("Adjuvant Treatment",
-                        settings['AdjuvantTreatment']['values'],
-                        index=settings['AdjuvantTreatment']['init_value'],
-                        key='AdjuvantTreatment')
-            
-            submitted = st.form_submit_button("Predict")
-    
-    times = np.arange(61)
-    
-    if submitted:
-        input_data = process_input(st.session_state, encoders)
-        input_data_reshaped = input_data.reshape(1, -1)
-      
-        survival_probs = []
-    
-        for t in times:
-            prob = model.predict_survival(input_data_reshaped, t=t)[0]
-            survival_probs.append(prob)
-    
-        survival_probs = np.array(survival_probs)
-    
-        probs_12m = model.predict_survival(input_data_reshaped, t=12)[0]
-        probs_36m = model.predict_survival(input_data_reshaped, t=36)[0]
-        probs_60m = model.predict_survival(input_data_reshaped, t=60)[0]
-    
-        fig = plot_survival_curve(times, survival_probs, probs_12m, probs_36m, probs_60m)
-        st.plotly_chart(fig, use_container_width=True, height=600)
-    
-        st.markdown("### Prediction Results")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("1-year Survival", f"{probs_12m*100:.1f}%")
-        with col2:
-            st.metric("3-year Survival", f"{probs_36m*100:.1f}%")
-        with col3:
-            st.metric("5-year Survival", f"{probs_60m*100:.1f}%")
 
-if __name__ == "__main__":
-    main()
+with st.sidebar:
+    with st.form("prediction_form"):
+        
+        st.slider("Age (year)", 
+                 settings['Age']['values'][0],
+                 settings['Age']['values'][1],
+                 settings['Age']['init_value'],
+                 key='Age')
+        
+        st.selectbox("Sex",
+                    settings['Sex']['values'],
+                    index=settings['Sex']['init_value'],
+                    key='Sex')
+        
+        st.slider("Tumor Size (mm)",
+                 settings['Size']['values'][0],
+                 settings['Size']['values'][1],
+                 settings['Size']['init_value'],
+                 key='Size')
+        
+        st.selectbox("Subtype",
+                    settings['Subtype']['values'],
+                    index=settings['Subtype']['init_value'],
+                    key='Subtype')
+        
+        st.selectbox("Extent of Resection",
+                    settings['Surgery']['values'],
+                    index=settings['Surgery']['init_value'],
+                    key='Surgery')
+        
+        st.selectbox("Adjuvant Treatment",
+                    settings['AdjuvantTreatment']['values'],
+                    index=settings['AdjuvantTreatment']['init_value'],
+                    key='AdjuvantTreatment')
+        
+        submitted = st.form_submit_button("Predict", on_click=predict)
 
+if st.session_state['patients']:
+    plot_survival()
+    
+    st.markdown("Prediction Results")
+    col1, col2, col3 = st.columns(3)
+    last_patient = st.session_state['patients'][-1]
+    
+    with col1:
+        st.metric(
+            label="1-year Survival Rate",
+            value=f"{last_patient['1-year']*100:.1f}%"
+        )
+    with col2:
+        st.metric(
+            label="3-year Survival Rate",
+            value=f"{last_patient['3-year']*100:.1f}%"
+        )
+    with col3:
+        st.metric(
+            label="5-year Survival Rate",
+            value=f"{last_patient['5-year']*100:.1f}%"
+        )
+
+
+# 添加说明信息
 st.markdown("---")
 st.markdown("### User Guide")
 st.markdown("""
