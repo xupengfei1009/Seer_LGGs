@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import pickle
+import plotly.express as px
 from pysurvival.utils import load_model
 
 st.set_page_config(
