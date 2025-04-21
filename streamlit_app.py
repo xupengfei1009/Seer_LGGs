@@ -11,9 +11,9 @@ st.set_page_config(layout="wide")
 @st.cache_data(show_spinner=False)
 def load_setting():
     settings = {
-        'Age': {'values': [0, 70], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
+        'Age': {'values': [19, 82], 'type': 'slider', 'init_value': 30, 'add_after': ' years'},
         'Sex': {'values': ["Female", "Male"], 'type': 'selectbox', 'init_value': 0, 'add_after': ''},
-        'Size': {'values': [0, 100], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
+        'Size': {'values': [4, 110], 'type': 'slider', 'init_value': 50, 'add_after': ' mm'},
         'Subtype': {
             'values': ["OLI(IDH-mutant)","AST(IDH-mutant)"],
             'type': 'selectbox',
