@@ -1,4 +1,4 @@
-pysurvival==0.1.2
+scikit-learn==1.6.1
 numpy==1.24.3
 pandas==2.0.3
 scipy==1.10.1
@@ -8,3 +8,5 @@ statsmodels==0.14.0
 streamlit==1.38.0
 lifelines==0.27.8
 plotly
+pysurvival==0.1.2
+
